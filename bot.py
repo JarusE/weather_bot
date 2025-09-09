@@ -21,8 +21,8 @@ bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 
-button_weather = KeyboardButton(text="Погода")
-button_forecast = KeyboardButton(text = "Прогноз на 5 дней")
+button_weather = KeyboardButton(text="Weather")
+button_forecast = KeyboardButton(text = "5 day forecast")
 builder = ReplyKeyboardBuilder()
 builder.add(button_weather, button_forecast)
 keyboard = builder.as_markup(resize_keyboard=True)
@@ -81,12 +81,12 @@ async def start(message: types.Message, state: FSMContext):
 
     if user:
         await message.answer(
-            f"C возвращением, {message.from_user.full_name}!",
+            f"Welcome back, {message.from_user.full_name}!",
             reply_markup = keyboard
         )
     else:
         await message.answer(
-            "Выбери систему исчесления температуры:",
+            "Select a temperature measurement system:",
             reply_markup = unit_keyboard
         )
         await state.set_state(WeatherStates.choosing_unit)
@@ -105,7 +105,7 @@ async def help_command(mesage: types.Message):
     :return: None
     """
     logging.info(f"User {mesage.from_user.id} ({mesage.from_user.full_name}) sent: {mesage.text}")
-    await mesage.answer("Напиши название города и я напишу его погоду")
+    await mesage.answer("Write the name of the city and I will write its weather")
 
 async def check_rain(user_id: int, city: str, unit: str):
     """
@@ -146,7 +146,7 @@ async def check_rain(user_id: int, city: str, unit: str):
         times = ", ".join([t.split(" ")[1] for t in data.get("alert_times", [])])
         await bot.send_message(
             user_id,
-            f"В ближайшее время ожидается дождь в {data['city']} ({times})"
+            f"Rain is expected in the near future in {data['city']} ({times})"
         )
 
 async def rein_scheduler():
@@ -186,21 +186,21 @@ async def settings(message: types.Message, state: FSMContext):
     user  = await get_user(message.from_user.id)
 
     if not user or not user.city or not user.unit:
-        await message.answer("Сначала установи город и систму исчесления (/start)")
+        await message.answer("First, set the city and measurement system. (/start)")
         return
 
     keyboard = ReplyKeyboardMarkup(
         keyboard=[
             [
-                KeyboardButton(text="Город по умолчанию"),
-                KeyboardButton(text="Систему измерения"),
+                KeyboardButton(text="Default city"),
+                KeyboardButton(text="Measurement system"),
             ]
         ],
         resize_keyboard=True
     )
-    await message.answer("Что хочешь изменить?", reply_markup=keyboard)
+    await message.answer("What do you want to change?", reply_markup=keyboard)
 
-@dp.message(F.text.in_({"Город по умолчанию", "Систему измерения"}))
+@dp.message(F.text.in_({"Default city", "Measurement system"}))
 async def change_setting(message: types.Message, state: FSMContext):
     """
     Handles user intent to change a specific application setting, such as the default city
@@ -212,11 +212,11 @@ async def change_setting(message: types.Message, state: FSMContext):
         data across asynchronous operations.
     :return: None
     """
-    if message.text == "Город по умолчанию":
-        await message.answer("Введи новый город по умолчанию")
+    if message.text == "Default city":
+        await message.answer("Enter a new default city")
         await state.set_state(WeatherStates.choosing_default_city)
     else:
-        await message.answer("Выбери систему измерения температуры", reply_markup=unit_keyboard)
+        await message.answer("Select a temperature measurement system", reply_markup=unit_keyboard)
         await state.set_state(WeatherStates.choosing_unit)
 
 @dp.message(WeatherStates.choosing_unit)
@@ -235,10 +235,10 @@ async def choose_unit(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     unit = message.text.strip()
     if unit not in ["°C", "°F"]:
-        await message.answer("Выбери °C или °F", reply_markup = unit_keyboard)
+        await message.answer("Select °C or °F", reply_markup = unit_keyboard)
         return
     await set_user(user_id, unit=unit)
-    await message.answer("Введи город по умолчанию")
+    await message.answer("Enter default city")
     await state.set_state(WeatherStates.choosing_default_city)
 
 @dp.message(WeatherStates.choosing_default_city)
@@ -258,20 +258,20 @@ async def choose_default_city(message: types.Message, state: FSMContext):
     user_id = message.from_user.id
     city = message.text.strip()
     if not all(part.isalpha() for part in city.split()):
-        await message.answer("Введи корректное название города")
+        await message.answer("Please enter the correct city name")
         return
     await set_user(user_id, city=city)
     await message.answer(
-        f"Город по умолчанию: {city}\n"
-        "Нажми кнопку Погода, чтобы увидеть прогноз",
+        f"Default city: {city}\n"
+        "Click the Weather button to see the forecast",
         reply_markup = keyboard
     )
     await state.clear()
 
-@dp.message(F.text == "Погода")
+@dp.message(F.text == "Weather")
 async def show_default_weather(message: types.Message):
     """
-    Handles the weather request when the user sends the message "Погода". The function
+    Handles the weather request when the user sends the message "Weather". The function
     retrieves the user's default city and unit settings to fetch and display the current
     weather using an external weather service API.
 
@@ -284,7 +284,7 @@ async def show_default_weather(message: types.Message):
     user = await get_user(user_id)
 
     if not user or not user.city:
-        await message.answer("Сначала нужно выбрать единцы измерения и город по умолчанию (/start)")
+        await message.answer("First, set the city and measurement system. (/start)")
         return
 
     city = user.city
@@ -299,25 +299,25 @@ async def show_default_weather(message: types.Message):
                 params={"city": city, "units": units_api}
             ) as resp:
                 if resp.status != 200:
-                    await message.answer("Сервис погоды недоступен")
+                    await message.answer("Weather service is unavailable")
                     return
                 data = await resp.json()
     except aiohttp.ClientError:
-        await message.answer("Ошибка соединения с сервером")
+        await message.answer("Error connecting to server")
         return
 
     if "error" in data:
         await message.answer(data["error"])
     else:
         text = (
-            f"Город: {data['city']}\n"
-            f"Температура: {data['temperature']}°{unit[1]}\n"
-            f"Ощущается как: {data['feels_like']}°{unit[1]}\n"
-            f"Погода: {data['weather']}"
+            f"City: {data['city']}\n"
+            f"Temperature: {data['temperature']}°{unit[1]}\n"
+            f"Feels like: {data['feels_like']}°{unit[1]}\n"
+            f"Weather: {data['weather']}"
         )
         await message.answer(text)
 
-@dp.message(F.text == "Прогноз на 5 дней")
+@dp.message(F.text == "5 day forecast")
 async def show_forecast(message: types.Message):
     """
     Handles the message event to display a 5-day weather forecast for the user.
@@ -336,7 +336,7 @@ async def show_forecast(message: types.Message):
     user = await get_user(user_id)
 
     if not user:
-        await message.answer("Сначала нужно выбрать единцы измерения и город по умолчанию (/start)")
+        await message.answer("First, set the city and measurement system. (/start)")
         return
 
     city = user.city
@@ -350,23 +350,23 @@ async def show_forecast(message: types.Message):
                 params={"city": city, "units": units_api}
             ) as resp:
                 if resp.status !=200:
-                    await message.answer("Сервис погоды недоступен")
+                    await message.answer("Weather service is unavailable")
                     return
                 data = await resp.json()
     except aiohttp.ClientError:
-        await message.answer("Ошибка соединения с сервером")
+        await message.answer("Error connecting to server")
         return
 
     if "error" in data:
         await message.answer(data["error"])
         return
 
-    text = f"Прогноз на 5 дней для {data['city']}:\n\n"
+    text = f"5 day forecast for {data['city']}:\n\n"
     for day in data["forecast"]:
         text +=(
             f"{day['date']}:\n"
-            f"Днём: {day['temp_day']}°{unit[1]} ощущается как {day['feels_like_day']}°{unit[1]}\n"
-            f"Ночью: {day['temp_night']}°{unit[1]} ощущается как {day['feels_like_night']}°{unit[1]}\n"
+            f"Daytime: {day['temp_day']}°{unit[1]} feels like {day['feels_like_day']}°{unit[1]}\n"
+            f"Nighttime: {day['temp_night']}°{unit[1]} feels like {day['feels_like_night']}°{unit[1]}\n"
             f"{day['weather']}\n\n"
         )
     await message.answer(text)
@@ -392,15 +392,15 @@ async def ask_forecast_type(message: types.Message):
 
     user = await get_user(user_id)
     if not user:
-        await message.answer("Сначала нужно выбрать единцы измерения и город по умолчанию (/start)")
+        await message.answer("First, set the city and measurement system. (/start)")
         return
 
     await set_user(user_id, last_city=city)
 
     kb = InlineKeyboardMarkup(
-        inline_keyboard= [[ InlineKeyboardButton(text = "Сейчас", callback_data="forecast_now"), InlineKeyboardButton(text = "На 5 дней", callback_data="forecast_5")]]
+        inline_keyboard= [[ InlineKeyboardButton(text = "Now", callback_data="forecast_now"), InlineKeyboardButton(text = "5 day forecast", callback_data="forecast_5")]]
     )
-    await  message.answer(f"Какой прогноз тебе нужен? ", reply_markup=kb)
+    await  message.answer(f"What forecast do you need? ", reply_markup=kb)
 
 @dp.callback_query(F.data == "forecast_now")
 async def show_now_forecast(callback: types.CallbackQuery):
@@ -433,10 +433,10 @@ async def show_now_forecast(callback: types.CallbackQuery):
         await callback.message.answer(data["error"])
     else:
         text = (
-            f"Город: {data['city']}\n"
-            f"Температура: {data['temperature']}°{unit[1]}\n"
-            f"Ощущается как: {data['feels_like']}°{unit[1]}\n"
-            f"Погода: {data['weather']}"
+            f"City: {data['city']}\n"
+            f"Temperature: {data['temperature']}°{unit[1]}\n"
+            f"Feels like: {data['feels_like']}°{unit[1]}\n"
+            f"Weather: {data['weather']}"
         )
         await callback.message.answer(text)
 
@@ -469,12 +469,12 @@ async def show_5_forecast(callback: types.CallbackQuery):
         await callback.message.answer(data["error"])
         return
 
-    text = f"Погода на 5 дней для {data['city']}:\n\n"
+    text = f"5 day forecast for {data['city']}:\n\n"
     for day in data["forecast"]:
         text += (
             f"{day['date']}:\n"
-            f"Днём: {day['temp_day']}°{unit[1]} ощущается как {day['feels_like_day']}°{unit[1]}\n"
-            f"Ночью: {day['temp_night']}°{unit[1]} ощущается как {day['feels_like_night']}°{unit[1]}\n"
+            f"Daytime: {day['temp_day']}°{unit[1]} feels like {day['feels_like_day']}°{unit[1]}\n"
+            f"Nighttime: {day['temp_night']}°{unit[1]} feels like {day['feels_like_night']}°{unit[1]}\n"
             f"{day['weather']}\n\n"
         )
     await callback.message.answer(text)

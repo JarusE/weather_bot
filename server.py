@@ -146,7 +146,7 @@ async def rain_alert(city:str, units:str="metric", hours_ahed: int = 6):
     async with aiohttp.ClientSession() as session:
         async with session.get(url_forecast) as resp:
             if resp.status != 200:
-                return {"eror": f"Не удалось получить проноз для {city}"}
+                return {"eror": f"Unable to get forecast for {city}"}
             data = await resp.json()
 
     from datetime import datetime, timedelta
