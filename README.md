@@ -34,7 +34,7 @@ Installation
 
     Clone the repository:
 
-    git clone https://github.com/yourusername/weatherbot.git
+    git clone https://github.com/JarusE/weather_bot
     
     cd weatherbot
 
